@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MailTool — Email Security Checker</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js" type="module"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon"><i class="ph-bold ph-envelope-simple-open"></i></span>
+        <span class="logo-text">Mail<span class="logo-accent">Tool</span></span>
+      </div>
+      <nav class="header-nav">
+        <button class="nav-btn active" data-view="checker" onclick="switchView('checker')">
+          <i class="ph ph-magnifying-glass"></i> Checker
+        </button>
+        <button class="nav-btn" data-view="headers" onclick="switchView('headers')">
+          <i class="ph ph-list-bullets"></i> Header Analyzer
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ── Domain Checker ───────────────────────────────────────────── -->
+  <main id="view-checker" class="view active">
+    <section class="search-section">
+      <h1 class="search-title">Email Security Checker</h1>
+      <p class="search-subtitle">SPF · DKIM · DMARC · BIMI · Blacklists · SMTP · and more</p>
+
+      <div class="search-bar-wrap">
+        <div class="search-bar">
+          <i class="ph ph-globe search-icon"></i>
+          <input id="domainInput" type="text" placeholder="Enter a domain, e.g. example.com"
+                 autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter') runAll()"/>
+          <button class="btn-run-all" onclick="runAll()">
+            <i class="ph-bold ph-play"></i> Run All Checks
+          </button>
+        </div>
+      </div>
+
+      <div class="dkim-row">
+        <i class="ph ph-key"></i>
+        <span>Custom DKIM Selector:</span>
+        <input id="dkimSelector" type="text" placeholder="e.g. google, selector1"
+               class="dkim-input" autocomplete="off"/>
+      </div>
+
+      <div class="individual-checks">
+        <button class="btn-check" onclick="runSingle('mx')"><i class="ph ph-arrows-down-up"></i> MX</button>
+        <button class="btn-check" onclick="runSingle('spf')"><i class="ph ph-shield-check"></i> SPF</button>
+        <button class="btn-check" onclick="runSingle('dmarc')"><i class="ph ph-lock-key"></i> DMARC</button>
+        <button class="btn-check" onclick="runSingle('dkim')"><i class="ph ph-key"></i> DKIM</button>
+        <button class="btn-check" onclick="runSingle('bimi')"><i class="ph ph-image-square"></i> BIMI</button>
+        <button class="btn-check" onclick="runSingle('blacklist')"><i class="ph ph-prohibit"></i> Blacklists</button>
+        <button class="btn-check" onclick="runSingle('smtp')"><i class="ph ph-plugs-connected"></i> SMTP</button>
+        <button class="btn-export" id="exportBtn" onclick="exportPDF()" style="display:none">
+          <i class="ph ph-file-pdf"></i> Export PDF
+        </button>
+      </div>
+    </section>
+
+    <div id="progressBar" class="progress-bar" style="display:none">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <section class="results-section" id="results" style="display:none">
+      <!-- Score -->
+      <div class="score-card" id="scoreCard">
+        <div class="score-display">
+          <div class="score-grade" id="scoreGrade">—</div>
+          <div class="score-meta">
+            <div class="score-number" id="scoreNumber">—/100</div>
+            <div class="score-label">Overall Health Score</div>
+          </div>
+        </div>
+        <ul class="score-issues" id="scoreIssues"></ul>
+      </div>
+
+      <!-- Cards grid -->
+      <div class="cards-grid">
+        <div class="check-card" id="card-mx">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-arrows-down-up"></i></span>
+            <span class="card-title">MX Records</span>
+            <span class="card-badge" id="badge-mx">—</span>
+          </div>
+          <div class="card-body" id="body-mx">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+
+        <div class="check-card" id="card-spf">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-shield-check"></i></span>
+            <span class="card-title">SPF</span>
+            <span class="card-badge" id="badge-spf">—</span>
+          </div>
+          <div class="card-body" id="body-spf">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+
+        <div class="check-card" id="card-dmarc">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-lock-key"></i></span>
+            <span class="card-title">DMARC</span>
+            <span class="card-badge" id="badge-dmarc">—</span>
+          </div>
+          <div class="card-body" id="body-dmarc">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+
+        <div class="check-card" id="card-dkim">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-key"></i></span>
+            <span class="card-title">DKIM</span>
+            <span class="card-badge" id="badge-dkim">—</span>
+          </div>
+          <div class="card-body" id="body-dkim">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+
+        <div class="check-card" id="card-bimi">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-image-square"></i></span>
+            <span class="card-title">BIMI</span>
+            <span class="card-badge" id="badge-bimi">—</span>
+          </div>
+          <div class="card-body" id="body-bimi">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+
+        <div class="check-card" id="card-blacklist">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-prohibit"></i></span>
+            <span class="card-title">Blacklists</span>
+            <span class="card-badge" id="badge-blacklist">—</span>
+          </div>
+          <div class="card-body" id="body-blacklist">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+
+        <div class="check-card full-width" id="card-smtp">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-plugs-connected"></i></span>
+            <span class="card-title">SMTP Connection Tests</span>
+            <span class="card-badge" id="badge-smtp">—</span>
+          </div>
+          <div class="card-body" id="body-smtp">
+            <div class="card-skeleton"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── Header Analyzer ──────────────────────────────────────────── -->
+  <main id="view-headers" class="view" style="display:none">
+    <section class="search-section">
+      <h1 class="search-title">Email Header Analyzer</h1>
+      <p class="search-subtitle">Paste raw email headers to trace delivery path, check authentication and detect anomalies</p>
+
+      <textarea id="headerInput" class="header-textarea"
+                placeholder="Paste raw email headers here...&#10;&#10;Received: from mail.example.com...&#10;From: sender@example.com&#10;DKIM-Signature: v=1; a=rsa-sha256..."></textarea>
+
+      <div class="header-actions">
+        <button class="btn-run-all" onclick="runHeaderAnalysis()">
+          <i class="ph-bold ph-magnifying-glass"></i> Analyze Headers
+        </button>
+      </div>
+    </section>
+
+    <section class="results-section" id="header-results" style="display:none">
+      <div class="cards-grid" id="header-cards"></div>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
