@@ -3,6 +3,78 @@
 let lastDomain = '';
 let lastResults = null;
 
+// ── Group / check state ───────────────────────────────────────────────────
+const GROUPS = {
+  dns:          { enabled: true  },
+  connectivity: { enabled: true  },
+  reputation:   { enabled: true  },
+  advanced:     { enabled: false },
+};
+
+const CHECKS = {
+  mx:            { group: 'dns',          enabled: true  },
+  spf:           { group: 'dns',          enabled: true  },
+  spf_chain:     { group: 'dns',          enabled: true  },
+  dmarc:         { group: 'dns',          enabled: true  },
+  dkim:          { group: 'dns',          enabled: true  },
+  smtp:          { group: 'connectivity', enabled: true  },
+  relay:         { group: 'connectivity', enabled: true  },
+  blacklist:     { group: 'reputation',   enabled: true  },
+  whois:         { group: 'reputation',   enabled: true  },
+  ip_reputation: { group: 'reputation',   enabled: true  },
+  bimi:          { group: 'advanced',     enabled: false },
+  mta_sts:       { group: 'advanced',     enabled: false },
+  dane:          { group: 'advanced',     enabled: false },
+};
+
+function toggleGroup(groupId) {
+  const group = GROUPS[groupId];
+  group.enabled = !group.enabled;
+  Object.entries(CHECKS).forEach(([key, check]) => {
+    if (check.group === groupId) {
+      check.enabled = group.enabled;
+      const chip = document.querySelector(`.check-chip[data-check="${key}"]`);
+      if (chip) chip.classList.toggle('on', group.enabled);
+    }
+  });
+  const panel = document.getElementById(`group-${groupId}`);
+  if (panel) panel.classList.toggle('active', group.enabled);
+  const toggle = document.getElementById(`toggle-${groupId}`);
+  if (toggle) toggle.classList.toggle('on', group.enabled);
+  _updateGroupCount(groupId);
+  _updateSelectedCount();
+}
+
+function toggleCheck(checkId, ev) {
+  if (ev) ev.stopPropagation();
+  const check = CHECKS[checkId];
+  check.enabled = !check.enabled;
+  const chip = document.querySelector(`.check-chip[data-check="${checkId}"]`);
+  if (chip) chip.classList.toggle('on', check.enabled);
+  const groupId = check.group;
+  const anyOn = Object.values(CHECKS).filter(c => c.group === groupId).some(c => c.enabled);
+  GROUPS[groupId].enabled = anyOn;
+  const panel = document.getElementById(`group-${groupId}`);
+  if (panel) panel.classList.toggle('active', anyOn);
+  const toggle = document.getElementById(`toggle-${groupId}`);
+  if (toggle) toggle.classList.toggle('on', anyOn);
+  _updateGroupCount(groupId);
+  _updateSelectedCount();
+}
+
+function _updateGroupCount(groupId) {
+  const checks = Object.values(CHECKS).filter(c => c.group === groupId);
+  const on = checks.filter(c => c.enabled).length;
+  const el = document.getElementById(`cgp-count-${groupId}`);
+  if (el) el.textContent = `${on} of ${checks.length}`;
+}
+
+function _updateSelectedCount() {
+  const count = Object.values(CHECKS).filter(c => c.enabled).length;
+  const el = document.getElementById('selectedCount');
+  if (el) el.textContent = count;
+}
+
 // ── View switching ────────────────────────────────────────────────────────
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => { v.style.display = 'none'; v.classList.remove('active'); });
@@ -32,19 +104,19 @@ async function runAll() {
     lastResults = data;
     setProgress(100);
     renderScore(data.score);
-    renderMX(data.mx);
-    renderSPF(data.spf);
-    renderSPFChain(data.spf_chain);
-    renderDMARC(data.dmarc);
-    renderDKIM(data.dkim);
-    renderBIMI(data.bimi);
-    renderMTASTS(data.mta_sts, data.tls_rpt);
-    renderDANE(data.dane);
-    renderBlacklist(data.blacklist);
-    renderIPRep(data.ip_reputation);
-    renderWHOIS(data.whois);
-    renderSMTP(data.smtp);
-    renderRelay(data.open_relay, data.catch_all);
+    if (CHECKS.mx.enabled)            renderMX(data.mx);
+    if (CHECKS.spf.enabled)           renderSPF(data.spf);
+    if (CHECKS.spf_chain.enabled)     renderSPFChain(data.spf_chain);
+    if (CHECKS.dmarc.enabled)         renderDMARC(data.dmarc);
+    if (CHECKS.dkim.enabled)          renderDKIM(data.dkim);
+    if (CHECKS.smtp.enabled)          renderSMTP(data.smtp);
+    if (CHECKS.relay.enabled)         renderRelay(data.open_relay, data.catch_all);
+    if (CHECKS.blacklist.enabled)     renderBlacklist(data.blacklist);
+    if (CHECKS.whois.enabled)         renderWHOIS(data.whois);
+    if (CHECKS.ip_reputation.enabled) renderIPRep(data.ip_reputation);
+    if (CHECKS.bimi.enabled)          renderBIMI(data.bimi);
+    if (CHECKS.mta_sts.enabled)       renderMTASTS(data.mta_sts, data.tls_rpt);
+    if (CHECKS.dane.enabled)          renderDANE(data.dane);
     document.getElementById('exportBtn').style.display = 'flex';
     setTimeout(() => hideProgress(), 600);
   } catch (e) {
@@ -249,6 +321,23 @@ function renderScore(score) {
   issuesEl.innerHTML = (score.issues || []).map(i =>
     `<li class="score-issue"><span class="issue-dot ${i.severity}"></span><span>${esc(i.text)}</span></li>`
   ).join('');
+
+  // Core breakdown bars
+  const core = score.core || {};
+  const coreEl = document.getElementById('scoreCoreBreakdown');
+  if (coreEl) {
+    coreEl.innerHTML = Object.values(core).map(area => {
+      const pct = area.max > 0 ? Math.round((area.score / area.max) * 100) : 0;
+      const cls = pct === 100 ? 'pass' : pct >= 60 ? 'warn' : 'fail';
+      return `<div class="core-area">
+        <div class="core-area-header">
+          <span class="core-area-label">${esc(area.label)}</span>
+          <span class="core-area-pts ${cls}">${area.score}/${area.max}</span>
+        </div>
+        <div class="core-bar-track"><div class="core-bar-fill ${cls}" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
 }
 
 function renderMX(data) {
@@ -676,15 +765,23 @@ function renderHeaderResults(data) {
 function showResultsSection() {
   const el = document.getElementById('results');
   el.style.display = 'block';
+  // Show/hide result groups based on current enabled state
+  Object.entries(GROUPS).forEach(([groupId, group]) => {
+    const rg = document.getElementById(`rg-${groupId}`);
+    if (rg) rg.style.display = group.enabled ? '' : 'none';
+  });
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-const ALL_CARDS = ['mx','spf','spf_chain','dmarc','dkim','bimi','mta_sts','dane','blacklist','ip_reputation','whois','smtp','relay'];
 function setAllLoading() {
-  ALL_CARDS.forEach(t => setCardLoading(t));
+  Object.entries(CHECKS).forEach(([key, check]) => {
+    if (check.enabled) setCardLoading(key);
+  });
   document.getElementById('scoreGrade').textContent = '—';
   document.getElementById('scoreNumber').textContent = '—/100';
   document.getElementById('scoreIssues').innerHTML = '';
+  const coreEl = document.getElementById('scoreCoreBreakdown');
+  if (coreEl) coreEl.innerHTML = '';
 }
 function setCardLoading(type) {
   setBadge(type, 'loading', 'Checking…');

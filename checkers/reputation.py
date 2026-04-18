@@ -9,8 +9,6 @@ async def check_whois(domain: str) -> dict:
     def _run():
         try:
             data = _rdap_domain(domain)
-            if not data:
-                return {'status': 'error', 'error': 'RDAP lookup failed', 'domain': domain}
 
             created = expires = updated = None
             for event in data.get('events', []):
@@ -125,14 +123,30 @@ async def check_ip_reputation(ips: list) -> dict:
     return await asyncio.get_event_loop().run_in_executor(None, _run)
 
 
+_RDAP_DOMAIN_URLS = [
+    'https://rdap.org/domain/{domain}',
+    'https://rdap.iana.org/domain/{domain}',
+    'https://data.iana.org/rdap/dns.json',  # bootstrap, not used directly
+]
+
+
 def _rdap_domain(domain: str) -> dict:
-    try:
-        req = Request(f'https://rdap.org/domain/{domain}',
-                      headers={'Accept': 'application/rdap+json', 'User-Agent': 'MailTool/1.0'})
-        with urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
-    except Exception:
-        return {}
+    urls = [
+        f'https://rdap.org/domain/{domain}',
+        f'https://rdap.iana.org/domain/{domain}',
+    ]
+    last_err = None
+    for url in urls:
+        try:
+            req = Request(url, headers={'Accept': 'application/rdap+json', 'User-Agent': 'MailTool/1.0'})
+            with urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+                if data:
+                    return data
+        except Exception as e:
+            last_err = e
+            continue
+    raise Exception(f'RDAP lookup failed for {domain}: {last_err}')
 
 
 def _rdap_ip(ip: str) -> dict:

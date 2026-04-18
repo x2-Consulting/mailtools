@@ -3,6 +3,7 @@ import socket
 import dns.resolver
 import dns.reversename
 from typing import Optional
+from checkers.utils import make_resolver
 
 PROVIDER_SELECTORS = {
     'google': ['google', 'google2', 'googlemail'],
@@ -62,10 +63,7 @@ COMMON_SELECTORS = [
 
 
 def _resolver():
-    r = dns.resolver.Resolver()
-    r.timeout = 5
-    r.lifetime = 10
-    return r
+    return make_resolver()
 
 
 def _txt_strings(rdata) -> str:
@@ -84,13 +82,16 @@ async def check_mx(domain: str) -> dict:
                 host = str(rdata.exchange).rstrip('.')
                 ip = None
                 try:
-                    ip = socket.gethostbyname(host)
+                    a_ans = r.resolve(host, 'A')
+                    ip = str(a_ans[0])
                 except Exception:
                     pass
                 ptr = None
                 if ip:
                     try:
-                        ptr = socket.gethostbyaddr(ip)[0]
+                        rev = dns.reversename.from_address(ip)
+                        ptr_ans = r.resolve(rev, 'PTR')
+                        ptr = str(ptr_ans[0]).rstrip('.')
                     except Exception:
                         pass
                 records.append({'priority': rdata.preference, 'host': host, 'ip': ip, 'ptr': ptr})

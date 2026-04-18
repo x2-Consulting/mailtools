@@ -5,41 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MailTool — Email Security Checker</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/static/css/style.css"/>
   <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js" type="module"></script>
 </head>
 <body>
+
   <header class="site-header">
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon"><i class="ph-bold ph-envelope-simple-open"></i></span>
-        <span class="logo-text">Mail<span class="logo-accent">Tool</span></span>
+        <span>Mail<span class="logo-accent">Tool</span></span>
       </div>
       <nav class="header-nav">
         <button class="nav-btn active" data-view="checker" onclick="switchView('checker')">
           <i class="ph ph-magnifying-glass"></i> Checker
         </button>
         <button class="nav-btn" data-view="headers" onclick="switchView('headers')">
-          <i class="ph ph-list-bullets"></i> Header Analyzer
+          <i class="ph ph-list-bullets"></i> Headers
         </button>
       </nav>
     </div>
   </header>
 
-  <!-- ── Domain Checker ───────────────────────────────────────────── -->
+  <!-- ── Domain Checker ─────────────────────────────────────────────── -->
   <main id="view-checker" class="view active">
     <section class="search-section">
       <h1 class="search-title">Email Security Checker</h1>
-      <p class="search-subtitle">SPF · DKIM · DMARC · BIMI · MTA-STS · DANE · Blacklists · SMTP · and more</p>
+      <p class="search-subtitle">SPF · DKIM · DMARC · Blacklists · SMTP · WHOIS · and more</p>
 
       <div class="search-bar-wrap">
         <div class="search-bar">
           <i class="ph ph-globe search-icon"></i>
-          <input id="domainInput" type="text" placeholder="Enter a domain, e.g. example.com"
+          <input id="domainInput" type="text" placeholder="Enter a domain — e.g. example.com"
                  autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter') runAll()"/>
-          <button class="btn-run-all" onclick="runAll()">
-            <i class="ph-bold ph-play"></i> Run All Checks
-          </button>
         </div>
       </div>
 
@@ -50,29 +51,89 @@
                class="dkim-input" autocomplete="off"/>
       </div>
 
-      <div class="individual-checks">
-        <span class="check-group-label">DNS</span>
-        <button class="btn-check" onclick="runSingle('mx')"><i class="ph ph-arrows-down-up"></i> MX</button>
-        <button class="btn-check" onclick="runSingle('spf')"><i class="ph ph-shield-check"></i> SPF</button>
-        <button class="btn-check" onclick="runSingle('dmarc')"><i class="ph ph-lock-key"></i> DMARC</button>
-        <button class="btn-check" onclick="runSingle('dkim')"><i class="ph ph-key"></i> DKIM</button>
-        <button class="btn-check" onclick="runSingle('bimi')"><i class="ph ph-image-square"></i> BIMI</button>
-        <button class="btn-check" onclick="runSingle('mta-sts')"><i class="ph ph-lock-simple"></i> MTA-STS</button>
-        <button class="btn-check" onclick="runSingle('dane')"><i class="ph ph-certificate"></i> DANE</button>
-        <span class="check-group-sep"></span>
-        <span class="check-group-label">Connection</span>
-        <button class="btn-check" onclick="runSingle('smtp')"><i class="ph ph-plugs-connected"></i> SMTP</button>
-        <button class="btn-check" onclick="runSingle('relay')"><i class="ph ph-shuffle"></i> Relay</button>
-        <button class="btn-check" onclick="runSingle('catchall')"><i class="ph ph-funnel"></i> Catch-All</button>
-        <span class="check-group-sep"></span>
-        <span class="check-group-label">Reputation</span>
-        <button class="btn-check" onclick="runSingle('blacklist')"><i class="ph ph-prohibit"></i> Blacklists</button>
-        <button class="btn-check" onclick="runSingle('whois')"><i class="ph ph-info"></i> WHOIS</button>
-        <button class="btn-check" onclick="runSingle('ip-reputation')"><i class="ph ph-map-pin"></i> IP Info</button>
-        <span class="check-group-sep"></span>
-        <button class="btn-export" id="exportBtn" onclick="exportPDF()" style="display:none">
-          <i class="ph ph-file-pdf"></i> Export PDF
-        </button>
+      <div class="check-config">
+        <div class="check-groups-grid">
+
+          <!-- DNS -->
+          <div class="check-group-panel active" id="group-dns">
+            <div class="cgp-header" onclick="toggleGroup('dns')">
+              <span class="cgp-icon"><i class="ph-fill ph-globe-hemisphere-west"></i></span>
+              <div class="cgp-info">
+                <span class="cgp-name">DNS Checks</span>
+                <span class="cgp-count" id="cgp-count-dns">5 of 5</span>
+              </div>
+              <div class="toggle-track on" id="toggle-dns"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="cgp-chips">
+              <button class="check-chip on" data-check="mx"        onclick="toggleCheck('mx',        event)">MX</button>
+              <button class="check-chip on" data-check="spf"       onclick="toggleCheck('spf',       event)">SPF</button>
+              <button class="check-chip on" data-check="spf_chain" onclick="toggleCheck('spf_chain', event)">SPF Chain</button>
+              <button class="check-chip on" data-check="dmarc"     onclick="toggleCheck('dmarc',     event)">DMARC</button>
+              <button class="check-chip on" data-check="dkim"      onclick="toggleCheck('dkim',      event)">DKIM</button>
+            </div>
+          </div>
+
+          <!-- Connectivity -->
+          <div class="check-group-panel active" id="group-connectivity">
+            <div class="cgp-header" onclick="toggleGroup('connectivity')">
+              <span class="cgp-icon"><i class="ph-fill ph-plugs-connected"></i></span>
+              <div class="cgp-info">
+                <span class="cgp-name">Connectivity</span>
+                <span class="cgp-count" id="cgp-count-connectivity">2 of 2</span>
+              </div>
+              <div class="toggle-track on" id="toggle-connectivity"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="cgp-chips">
+              <button class="check-chip on" data-check="smtp"  onclick="toggleCheck('smtp',  event)">SMTP</button>
+              <button class="check-chip on" data-check="relay" onclick="toggleCheck('relay', event)">Relay &amp; Catch-All</button>
+            </div>
+          </div>
+
+          <!-- Reputation -->
+          <div class="check-group-panel active" id="group-reputation">
+            <div class="cgp-header" onclick="toggleGroup('reputation')">
+              <span class="cgp-icon"><i class="ph-fill ph-shield-check"></i></span>
+              <div class="cgp-info">
+                <span class="cgp-name">Reputation</span>
+                <span class="cgp-count" id="cgp-count-reputation">3 of 3</span>
+              </div>
+              <div class="toggle-track on" id="toggle-reputation"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="cgp-chips">
+              <button class="check-chip on" data-check="blacklist"     onclick="toggleCheck('blacklist',     event)">Blacklists</button>
+              <button class="check-chip on" data-check="whois"         onclick="toggleCheck('whois',         event)">WHOIS</button>
+              <button class="check-chip on" data-check="ip_reputation" onclick="toggleCheck('ip_reputation', event)">IP Info</button>
+            </div>
+          </div>
+
+          <!-- Advanced (off by default) -->
+          <div class="check-group-panel" id="group-advanced">
+            <div class="cgp-header" onclick="toggleGroup('advanced')">
+              <span class="cgp-icon"><i class="ph-fill ph-sparkle"></i></span>
+              <div class="cgp-info">
+                <span class="cgp-name">Advanced</span>
+                <span class="cgp-count" id="cgp-count-advanced">0 of 3</span>
+              </div>
+              <div class="toggle-track" id="toggle-advanced"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="cgp-chips">
+              <button class="check-chip" data-check="bimi"    onclick="toggleCheck('bimi',    event)">BIMI</button>
+              <button class="check-chip" data-check="mta_sts" onclick="toggleCheck('mta_sts', event)">MTA-STS</button>
+              <button class="check-chip" data-check="dane"    onclick="toggleCheck('dane',    event)">DANE</button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="run-bar">
+          <button class="btn-run-all" onclick="runAll()">
+            <i class="ph-bold ph-play"></i>
+            Run <span id="selectedCount">10</span> Checks
+          </button>
+          <button class="btn-export" id="exportBtn" onclick="exportPDF()" style="display:none">
+            <i class="ph ph-file-pdf"></i> PDF Report
+          </button>
+        </div>
       </div>
     </section>
 
@@ -81,278 +142,310 @@
     </div>
 
     <section class="results-section" id="results" style="display:none">
-      <!-- Score -->
+
+      <!-- Score card -->
       <div class="score-card" id="scoreCard">
         <div class="score-display">
           <div class="score-grade" id="scoreGrade">—</div>
           <div class="score-meta">
             <div class="score-number" id="scoreNumber">—/100</div>
-            <div class="score-label">Overall Health Score</div>
+            <div class="score-label">Health Score</div>
           </div>
         </div>
-        <ul class="score-issues" id="scoreIssues"></ul>
+        <div class="score-right">
+          <ul class="score-issues" id="scoreIssues"></ul>
+          <div class="core-breakdown" id="scoreCoreBreakdown"></div>
+        </div>
       </div>
 
-      <!-- Cards grid -->
-      <div class="cards-grid">
-
-        <!-- MX -->
-        <div class="check-card" id="card-mx">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-arrows-down-up"></i></span>
-            <span class="card-title">MX Records</span>
-            <span class="card-badge" id="badge-mx">—</span>
-            <button class="help-btn" onclick="toggleHelp('mx')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-mx" style="display:none">
-            <p><strong>What:</strong> MX (Mail Exchanger) records tell the internet which servers accept email for your domain.</p>
-            <p><strong>Why:</strong> Without correct MX records, nobody can send you email. Priority values ensure failover to backup servers.</p>
-          </div>
-          <div class="card-body" id="body-mx"><div class="card-skeleton"></div></div>
+      <!-- DNS results -->
+      <div class="result-group" id="rg-dns">
+        <div class="rg-header">
+          <span class="rg-icon"><i class="ph ph-globe-hemisphere-west"></i></span>
+          <span class="rg-label">DNS Checks</span>
         </div>
+        <div class="cards-grid">
 
-        <!-- SPF -->
-        <div class="check-card" id="card-spf">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-shield-check"></i></span>
-            <span class="card-title">SPF</span>
-            <span class="card-badge" id="badge-spf">—</span>
-            <button class="help-btn" onclick="toggleHelp('spf')" title="Help"><i class="ph ph-question"></i></button>
+          <div class="check-card" id="card-mx">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-arrows-down-up"></i></span>
+              <span class="card-title">MX Records</span>
+              <span class="card-badge" id="badge-mx">—</span>
+              <button class="help-btn" onclick="toggleHelp('mx')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-mx" style="display:none">
+              <p><strong>What:</strong> MX records tell the internet which servers accept email for your domain.</p>
+              <p><strong>Why:</strong> Without correct MX records, nobody can send you email. Priority values ensure failover to backup servers.</p>
+            </div>
+            <div class="card-body" id="body-mx"><div class="card-skeleton"></div></div>
           </div>
-          <div class="card-help" id="help-spf" style="display:none">
-            <p><strong>What:</strong> SPF (Sender Policy Framework) lists which servers are authorised to send email from your domain.</p>
-            <p><strong>Why:</strong> Prevents spammers forging your domain in the "From" address. A strict <code>-all</code> policy means unauthorised senders are rejected.</p>
-            <div class="help-generator" id="gen-spf" style="display:none">
-              <div class="section-label">Record Generator</div>
-              <div class="gen-field"><label>Your mail server IP or hostname</label><input type="text" id="spf-ip" placeholder="mail.yourdomain.com or 1.2.3.4"/></div>
-              <div class="gen-field"><label>Include provider</label>
-                <select id="spf-provider">
-                  <option value="">— None —</option>
-                  <option value="include:_spf.google.com">Google Workspace</option>
-                  <option value="include:spf.protection.outlook.com">Microsoft 365</option>
-                  <option value="include:amazonses.com">Amazon SES</option>
-                  <option value="include:sendgrid.net">SendGrid</option>
-                  <option value="include:_spf.mailchimp.com">Mailchimp</option>
-                  <option value="include:spf.mandrillapp.com">Mandrill</option>
-                </select>
+
+          <div class="check-card" id="card-spf">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-shield-check"></i></span>
+              <span class="card-title">SPF</span>
+              <span class="card-badge" id="badge-spf">—</span>
+              <button class="help-btn" onclick="toggleHelp('spf')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-spf" style="display:none">
+              <p><strong>What:</strong> SPF lists which servers are authorised to send email from your domain.</p>
+              <p><strong>Why:</strong> Prevents spammers forging your domain. A strict <code>-all</code> policy means unauthorised senders are rejected.</p>
+              <div class="help-generator" id="gen-spf" style="display:none">
+                <div class="section-label">Record Generator</div>
+                <div class="gen-field"><label>Mail server IP or hostname</label><input type="text" id="spf-ip" placeholder="mail.yourdomain.com or 1.2.3.4"/></div>
+                <div class="gen-field"><label>Include provider</label>
+                  <select id="spf-provider">
+                    <option value="">— None —</option>
+                    <option value="include:_spf.google.com">Google Workspace</option>
+                    <option value="include:spf.protection.outlook.com">Microsoft 365</option>
+                    <option value="include:amazonses.com">Amazon SES</option>
+                    <option value="include:sendgrid.net">SendGrid</option>
+                    <option value="include:_spf.mailchimp.com">Mailchimp</option>
+                    <option value="include:spf.mandrillapp.com">Mandrill</option>
+                  </select>
+                </div>
+                <div class="gen-field"><label>Policy</label>
+                  <select id="spf-policy">
+                    <option value="-all">-all (Reject — recommended)</option>
+                    <option value="~all">~all (Softfail)</option>
+                    <option value="?all">?all (Neutral)</option>
+                  </select>
+                </div>
+                <button class="btn-generate" onclick="generateSPF()"><i class="ph ph-magic-wand"></i> Generate</button>
+                <div class="gen-output" id="spf-output" style="display:none"></div>
               </div>
-              <div class="gen-field"><label>Policy</label>
-                <select id="spf-policy">
-                  <option value="-all">-all (Reject — recommended)</option>
-                  <option value="~all">~all (Softfail)</option>
-                  <option value="?all">?all (Neutral)</option>
-                </select>
+            </div>
+            <div class="card-body" id="body-spf"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card" id="card-spf_chain">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-tree-structure"></i></span>
+              <span class="card-title">SPF Include Chain</span>
+              <span class="card-badge" id="badge-spf_chain">—</span>
+              <button class="help-btn" onclick="toggleHelp('spf_chain')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-spf_chain" style="display:none">
+              <p><strong>What:</strong> Recursively expands all <code>include:</code> directives to show every authorised IP address.</p>
+              <p><strong>Why:</strong> SPF has a hard limit of 10 DNS lookups. Exceeding it causes a <em>permerror</em> and email may be rejected.</p>
+            </div>
+            <div class="card-body" id="body-spf_chain"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card" id="card-dmarc">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-lock-key"></i></span>
+              <span class="card-title">DMARC</span>
+              <span class="card-badge" id="badge-dmarc">—</span>
+              <button class="help-btn" onclick="toggleHelp('dmarc')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-dmarc" style="display:none">
+              <p><strong>What:</strong> DMARC ties SPF and DKIM together and tells receivers what to do when email fails authentication.</p>
+              <p><strong>Why:</strong> Without DMARC <code>reject</code>, anyone can send email appearing to be from your domain.</p>
+              <div class="help-generator" id="gen-dmarc" style="display:none">
+                <div class="section-label">Record Generator</div>
+                <div class="gen-field"><label>Policy</label>
+                  <select id="dmarc-policy">
+                    <option value="none">none (Monitor only — start here)</option>
+                    <option value="quarantine">quarantine (Send to spam)</option>
+                    <option value="reject">reject (Block — recommended)</option>
+                  </select>
+                </div>
+                <div class="gen-field"><label>Aggregate report email (rua)</label><input type="email" id="dmarc-rua" placeholder="dmarc-reports@yourdomain.com"/></div>
+                <div class="gen-field"><label>Forensic report email (ruf) — optional</label><input type="email" id="dmarc-ruf" placeholder="dmarc-forensic@yourdomain.com"/></div>
+                <div class="gen-field"><label>Percentage</label><input type="number" id="dmarc-pct" value="100" min="1" max="100"/></div>
+                <button class="btn-generate" onclick="generateDMARC()"><i class="ph ph-magic-wand"></i> Generate</button>
+                <div class="gen-output" id="dmarc-output" style="display:none"></div>
               </div>
-              <button class="btn-generate" onclick="generateSPF()"><i class="ph ph-magic-wand"></i> Generate</button>
-              <div class="gen-output" id="spf-output" style="display:none"></div>
             </div>
+            <div class="card-body" id="body-dmarc"><div class="card-skeleton"></div></div>
           </div>
-          <div class="card-body" id="body-spf"><div class="card-skeleton"></div></div>
-        </div>
 
-        <!-- SPF Chain -->
-        <div class="check-card" id="card-spf_chain">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-tree-structure"></i></span>
-            <span class="card-title">SPF Include Chain</span>
-            <span class="card-badge" id="badge-spf_chain">—</span>
-            <button class="help-btn" onclick="toggleHelp('spf_chain')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-spf_chain" style="display:none">
-            <p><strong>What:</strong> Recursively expands all <code>include:</code> directives in your SPF record to show every authorised IP address.</p>
-            <p><strong>Why:</strong> SPF has a hard limit of 10 DNS lookups. Exceeding it causes a <em>permerror</em> and all your email may be rejected. This view shows the full tree and total lookup count.</p>
-          </div>
-          <div class="card-body" id="body-spf_chain"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- DMARC -->
-        <div class="check-card" id="card-dmarc">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-lock-key"></i></span>
-            <span class="card-title">DMARC</span>
-            <span class="card-badge" id="badge-dmarc">—</span>
-            <button class="help-btn" onclick="toggleHelp('dmarc')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-dmarc" style="display:none">
-            <p><strong>What:</strong> DMARC ties SPF and DKIM together and tells receivers what to do when email fails authentication: <code>none</code> (monitor), <code>quarantine</code> (spam folder), or <code>reject</code> (block).</p>
-            <p><strong>Why:</strong> Without DMARC, anyone can send email appearing to be from your domain and it will be delivered. DMARC + reject is the only way to fully prevent domain spoofing.</p>
-            <div class="help-generator" id="gen-dmarc" style="display:none">
-              <div class="section-label">Record Generator</div>
-              <div class="gen-field"><label>Policy</label>
-                <select id="dmarc-policy">
-                  <option value="none">none (Monitor only — start here)</option>
-                  <option value="quarantine">quarantine (Send to spam)</option>
-                  <option value="reject">reject (Block — recommended)</option>
-                </select>
-              </div>
-              <div class="gen-field"><label>Aggregate report email (rua)</label><input type="email" id="dmarc-rua" placeholder="dmarc-reports@yourdomain.com"/></div>
-              <div class="gen-field"><label>Forensic report email (ruf) — optional</label><input type="email" id="dmarc-ruf" placeholder="dmarc-forensic@yourdomain.com"/></div>
-              <div class="gen-field"><label>Percentage (pct)</label><input type="number" id="dmarc-pct" value="100" min="1" max="100"/></div>
-              <button class="btn-generate" onclick="generateDMARC()"><i class="ph ph-magic-wand"></i> Generate</button>
-              <div class="gen-output" id="dmarc-output" style="display:none"></div>
+          <div class="check-card" id="card-dkim">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-key"></i></span>
+              <span class="card-title">DKIM</span>
+              <span class="card-badge" id="badge-dkim">—</span>
+              <button class="help-btn" onclick="toggleHelp('dkim')" title="Help"><i class="ph ph-question"></i></button>
             </div>
-          </div>
-          <div class="card-body" id="body-dmarc"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- DKIM -->
-        <div class="check-card" id="card-dkim">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-key"></i></span>
-            <span class="card-title">DKIM</span>
-            <span class="card-badge" id="badge-dkim">—</span>
-            <button class="help-btn" onclick="toggleHelp('dkim')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-dkim" style="display:none">
-            <p><strong>What:</strong> DKIM adds a cryptographic signature to outgoing emails so the recipient can verify the message hasn't been tampered with in transit.</p>
-            <p><strong>Why:</strong> Required for DMARC alignment. Without DKIM, forwarded mail often fails SPF, and DMARC can't protect you. Use 2048-bit RSA keys — 1024-bit is considered weak.</p>
-          </div>
-          <div class="card-body" id="body-dkim"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- BIMI -->
-        <div class="check-card" id="card-bimi">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-image-square"></i></span>
-            <span class="card-title">BIMI</span>
-            <span class="card-badge" id="badge-bimi">—</span>
-            <button class="help-btn" onclick="toggleHelp('bimi')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-bimi" style="display:none">
-            <p><strong>What:</strong> BIMI displays your brand logo next to authenticated emails in Gmail, Apple Mail, and Yahoo.</p>
-            <p><strong>Why:</strong> Requires DMARC policy of <code>quarantine</code> or <code>reject</code>. A Verified Mark Certificate (VMC) is required for Gmail logo display. Improves brand recognition and trust.</p>
-            <div class="help-generator" id="gen-bimi" style="display:none">
-              <div class="section-label">Record Generator</div>
-              <div class="gen-field"><label>SVG logo URL (must be hosted on HTTPS)</label><input type="url" id="bimi-logo" placeholder="https://yourdomain.com/logo.svg"/></div>
-              <div class="gen-field"><label>VMC certificate URL (optional)</label><input type="url" id="bimi-vmc" placeholder="https://yourdomain.com/cert.pem"/></div>
-              <button class="btn-generate" onclick="generateBIMI()"><i class="ph ph-magic-wand"></i> Generate</button>
-              <div class="gen-output" id="bimi-output" style="display:none"></div>
+            <div class="card-help" id="help-dkim" style="display:none">
+              <p><strong>What:</strong> DKIM adds a cryptographic signature to outgoing email so recipients can verify it hasn't been altered.</p>
+              <p><strong>Why:</strong> Required for DMARC alignment. Use 2048-bit RSA keys — 1024-bit is weak and should be rotated.</p>
             </div>
+            <div class="card-body" id="body-dkim"><div class="card-skeleton"></div></div>
           </div>
-          <div class="card-body" id="body-bimi"><div class="card-skeleton"></div></div>
-        </div>
 
-        <!-- MTA-STS -->
-        <div class="check-card" id="card-mta_sts">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-lock-simple"></i></span>
-            <span class="card-title">MTA-STS &amp; TLS-RPT</span>
-            <span class="card-badge" id="badge-mta_sts">—</span>
-            <button class="help-btn" onclick="toggleHelp('mta_sts')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-mta_sts" style="display:none">
-            <p><strong>MTA-STS:</strong> Forces other mail servers to use TLS when sending to you, and reject connections with invalid certificates. Requires a DNS record + policy file at <code>https://mta-sts.yourdomain.com/.well-known/mta-sts.txt</code>.</p>
-            <p><strong>TLS-RPT:</strong> Tells other servers where to send reports when TLS connections to your MX fail. Essential for monitoring MTA-STS effectiveness.</p>
-            <p><strong>Why:</strong> Without MTA-STS, email to your domain can be downgraded to plaintext (STARTTLS stripping attack) exposing message content.</p>
-            <div class="help-generator" id="gen-mta_sts" style="display:none">
-              <div class="section-label">DNS Record Generator</div>
-              <div class="gen-field"><label>MTA-STS policy ID (any unique string, change when policy changes)</label><input type="text" id="mta-id" placeholder="20240101000000"/></div>
-              <div class="gen-field"><label>TLS-RPT report URI</label><input type="email" id="tls-rpt-email" placeholder="tls-reports@yourdomain.com"/></div>
-              <button class="btn-generate" onclick="generateMTASTS()"><i class="ph ph-magic-wand"></i> Generate Records</button>
-              <div class="gen-output" id="mta-sts-output" style="display:none"></div>
-            </div>
-          </div>
-          <div class="card-body" id="body-mta_sts"><div class="card-skeleton"></div></div>
         </div>
-
-        <!-- DANE -->
-        <div class="check-card" id="card-dane">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-certificate"></i></span>
-            <span class="card-title">DANE / TLSA</span>
-            <span class="card-badge" id="badge-dane">—</span>
-            <button class="help-btn" onclick="toggleHelp('dane')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-dane" style="display:none">
-            <p><strong>What:</strong> DANE (DNS-based Authentication of Named Entities) pins your mail server's TLS certificate in DNS via TLSA records, eliminating reliance on the CA trust system.</p>
-            <p><strong>Why:</strong> Prevents TLS certificate spoofing on your MX servers. Required by some strict receivers (e.g. German mail providers). Requires DNSSEC on your domain.</p>
-          </div>
-          <div class="card-body" id="body-dane"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- Blacklists -->
-        <div class="check-card" id="card-blacklist">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-prohibit"></i></span>
-            <span class="card-title">Blacklists (RBL)</span>
-            <span class="card-badge" id="badge-blacklist">—</span>
-            <button class="help-btn" onclick="toggleHelp('blacklist')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-blacklist" style="display:none">
-            <p><strong>What:</strong> Real-time Blackhole Lists (RBLs) are databases of IP addresses known to send spam. Checked: Spamhaus, Barracuda, SpamCop, TrendMicro ERS/DBL, and 19 others.</p>
-            <p><strong>Why:</strong> A listing can cause all your email to be silently dropped or spam-foldered at major providers. If listed, contact the RBL operator for delisting.</p>
-          </div>
-          <div class="card-body" id="body-blacklist"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- IP Reputation -->
-        <div class="check-card" id="card-ip_reputation">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-map-pin"></i></span>
-            <span class="card-title">IP Reputation</span>
-            <span class="card-badge" id="badge-ip_reputation">—</span>
-            <button class="help-btn" onclick="toggleHelp('ip_reputation')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-ip_reputation" style="display:none">
-            <p><strong>What:</strong> Shows the organisation, country, network block and abuse contact for each MX server IP via RDAP.</p>
-            <p><strong>Why:</strong> Confirms your mail is being sent from expected infrastructure. The abuse contact is useful if someone is forging your domain or if you need to report an incident.</p>
-          </div>
-          <div class="card-body" id="body-ip_reputation"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- WHOIS -->
-        <div class="check-card" id="card-whois">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-info"></i></span>
-            <span class="card-title">Domain Info (WHOIS)</span>
-            <span class="card-badge" id="badge-whois">—</span>
-            <button class="help-btn" onclick="toggleHelp('whois')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-whois" style="display:none">
-            <p><strong>What:</strong> Registration data for the domain — age, registrar, expiry, and status flags.</p>
-            <p><strong>Why:</strong> Very new domains (&lt;30 days) are heavily penalised by spam filters. Expired domains stop delivering email. clientDeleteProhibited/clientTransferProhibited flags protect against domain hijacking.</p>
-          </div>
-          <div class="card-body" id="body-whois"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- SMTP -->
-        <div class="check-card full-width" id="card-smtp">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-plugs-connected"></i></span>
-            <span class="card-title">SMTP Connection Tests</span>
-            <span class="card-badge" id="badge-smtp">—</span>
-            <button class="help-btn" onclick="toggleHelp('smtp')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-smtp" style="display:none">
-            <p><strong>What:</strong> Tests live TCP connections to your mail servers on ports 25 (SMTP), 587 (Submission), and 465 (SMTPS), verifying TLS support and certificate details.</p>
-            <p><strong>Why:</strong> STARTTLS on port 25/587 encrypts mail in transit. Port 465 uses implicit TLS. Servers without TLS expose email content to interception on every hop.</p>
-          </div>
-          <div class="card-body" id="body-smtp"><div class="card-skeleton"></div></div>
-        </div>
-
-        <!-- Open Relay + Catch-all -->
-        <div class="check-card full-width" id="card-relay">
-          <div class="card-header">
-            <span class="card-icon"><i class="ph ph-shuffle"></i></span>
-            <span class="card-title">Open Relay &amp; Catch-All</span>
-            <span class="card-badge" id="badge-relay">—</span>
-            <button class="help-btn" onclick="toggleHelp('relay')" title="Help"><i class="ph ph-question"></i></button>
-          </div>
-          <div class="card-help" id="help-relay" style="display:none">
-            <p><strong>Open Relay:</strong> Tests whether your mail server will forward email to arbitrary external addresses. An open relay is immediately exploited by spammers and will get your IP blacklisted within hours.</p>
-            <p><strong>Catch-All:</strong> Tests whether the server accepts email to any address at your domain (e.g. <code>gibberish@yourdomain.com</code>). Catch-alls cause high bounce rates that damage deliverability reputation.</p>
-          </div>
-          <div class="card-body" id="body-relay"><div class="card-skeleton"></div></div>
-        </div>
-
       </div>
+
+      <!-- Connectivity results -->
+      <div class="result-group" id="rg-connectivity">
+        <div class="rg-header">
+          <span class="rg-icon"><i class="ph ph-plugs-connected"></i></span>
+          <span class="rg-label">Connectivity</span>
+        </div>
+        <div class="cards-grid">
+
+          <div class="check-card full-width" id="card-smtp">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-plugs-connected"></i></span>
+              <span class="card-title">SMTP Connection Tests</span>
+              <span class="card-badge" id="badge-smtp">—</span>
+              <button class="help-btn" onclick="toggleHelp('smtp')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-smtp" style="display:none">
+              <p><strong>What:</strong> Tests live TCP connections to your mail servers on ports 25 (SMTP), 587 (Submission), and 465 (SMTPS).</p>
+              <p><strong>Why:</strong> STARTTLS on port 25/587 encrypts mail in transit. Servers without TLS expose message content to interception.</p>
+            </div>
+            <div class="card-body" id="body-smtp"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card full-width" id="card-relay">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-shuffle"></i></span>
+              <span class="card-title">Open Relay &amp; Catch-All</span>
+              <span class="card-badge" id="badge-relay">—</span>
+              <button class="help-btn" onclick="toggleHelp('relay')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-relay" style="display:none">
+              <p><strong>Open Relay:</strong> Tests whether your server forwards email to arbitrary external addresses. An open relay is immediately exploited by spammers and will get your IP blacklisted.</p>
+              <p><strong>Catch-All:</strong> Tests whether the server accepts email to any address at your domain. Catch-alls cause high bounce rates that damage deliverability reputation.</p>
+            </div>
+            <div class="card-body" id="body-relay"><div class="card-skeleton"></div></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Reputation results -->
+      <div class="result-group" id="rg-reputation">
+        <div class="rg-header">
+          <span class="rg-icon"><i class="ph ph-shield-check"></i></span>
+          <span class="rg-label">Reputation</span>
+        </div>
+        <div class="cards-grid">
+
+          <div class="check-card" id="card-blacklist">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-prohibit"></i></span>
+              <span class="card-title">Blacklists (RBL)</span>
+              <span class="card-badge" id="badge-blacklist">—</span>
+              <button class="help-btn" onclick="toggleHelp('blacklist')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-blacklist" style="display:none">
+              <p><strong>What:</strong> Real-time Blackhole Lists (RBLs) are databases of IPs known to send spam. Checked: Spamhaus, Barracuda, SpamCop, TrendMicro ERS/DBL, and 19 others.</p>
+              <p><strong>Why:</strong> A listing causes email to be silently dropped or spam-foldered at major providers. Contact the RBL operator for delisting.</p>
+            </div>
+            <div class="card-body" id="body-blacklist"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card" id="card-whois">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-info"></i></span>
+              <span class="card-title">Domain Info (WHOIS)</span>
+              <span class="card-badge" id="badge-whois">—</span>
+              <button class="help-btn" onclick="toggleHelp('whois')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-whois" style="display:none">
+              <p><strong>What:</strong> Registration data — age, registrar, expiry, and status flags.</p>
+              <p><strong>Why:</strong> Very new domains (&lt;30 days) are penalised by spam filters. Expired domains stop delivering email. Status flags protect against domain hijacking.</p>
+            </div>
+            <div class="card-body" id="body-whois"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card" id="card-ip_reputation">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-map-pin"></i></span>
+              <span class="card-title">IP Reputation</span>
+              <span class="card-badge" id="badge-ip_reputation">—</span>
+              <button class="help-btn" onclick="toggleHelp('ip_reputation')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-ip_reputation" style="display:none">
+              <p><strong>What:</strong> Organisation, country, network block and abuse contact for each MX server IP via RDAP.</p>
+              <p><strong>Why:</strong> Confirms mail is sent from expected infrastructure. Abuse contact useful for reporting incidents.</p>
+            </div>
+            <div class="card-body" id="body-ip_reputation"><div class="card-skeleton"></div></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Advanced results (hidden by default) -->
+      <div class="result-group" id="rg-advanced" style="display:none">
+        <div class="rg-header">
+          <span class="rg-icon"><i class="ph ph-sparkle"></i></span>
+          <span class="rg-label">Advanced</span>
+          <span class="rg-optional-badge">Optional</span>
+        </div>
+        <div class="cards-grid">
+
+          <div class="check-card" id="card-bimi">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-image-square"></i></span>
+              <span class="card-title">BIMI</span>
+              <span class="card-badge" id="badge-bimi">—</span>
+              <button class="help-btn" onclick="toggleHelp('bimi')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-bimi" style="display:none">
+              <p><strong>What:</strong> BIMI displays your brand logo next to authenticated emails in Gmail, Apple Mail, and Yahoo.</p>
+              <p><strong>Why:</strong> Requires DMARC <code>quarantine</code> or <code>reject</code>. A Verified Mark Certificate (VMC) is needed for Gmail. Improves brand trust and open rates.</p>
+              <div class="help-generator" id="gen-bimi" style="display:none">
+                <div class="section-label">Record Generator</div>
+                <div class="gen-field"><label>SVG logo URL (HTTPS)</label><input type="url" id="bimi-logo" placeholder="https://yourdomain.com/logo.svg"/></div>
+                <div class="gen-field"><label>VMC certificate URL (optional)</label><input type="url" id="bimi-vmc" placeholder="https://yourdomain.com/cert.pem"/></div>
+                <button class="btn-generate" onclick="generateBIMI()"><i class="ph ph-magic-wand"></i> Generate</button>
+                <div class="gen-output" id="bimi-output" style="display:none"></div>
+              </div>
+            </div>
+            <div class="card-body" id="body-bimi"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card" id="card-mta_sts">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-lock-simple"></i></span>
+              <span class="card-title">MTA-STS &amp; TLS-RPT</span>
+              <span class="card-badge" id="badge-mta_sts">—</span>
+              <button class="help-btn" onclick="toggleHelp('mta_sts')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-mta_sts" style="display:none">
+              <p><strong>MTA-STS:</strong> Forces other mail servers to use TLS when sending to you, and reject connections with invalid certificates.</p>
+              <p><strong>TLS-RPT:</strong> Tells other servers where to send reports when TLS connections to your MX fail.</p>
+              <p><strong>Why:</strong> Without MTA-STS, email can be downgraded to plaintext via STARTTLS stripping, exposing message content.</p>
+              <div class="help-generator" id="gen-mta_sts" style="display:none">
+                <div class="section-label">DNS Record Generator</div>
+                <div class="gen-field"><label>Policy ID (change when policy changes)</label><input type="text" id="mta-id" placeholder="20240101000000"/></div>
+                <div class="gen-field"><label>TLS-RPT report email</label><input type="email" id="tls-rpt-email" placeholder="tls-reports@yourdomain.com"/></div>
+                <button class="btn-generate" onclick="generateMTASTS()"><i class="ph ph-magic-wand"></i> Generate Records</button>
+                <div class="gen-output" id="mta-sts-output" style="display:none"></div>
+              </div>
+            </div>
+            <div class="card-body" id="body-mta_sts"><div class="card-skeleton"></div></div>
+          </div>
+
+          <div class="check-card" id="card-dane">
+            <div class="card-header">
+              <span class="card-icon"><i class="ph ph-certificate"></i></span>
+              <span class="card-title">DANE / TLSA</span>
+              <span class="card-badge" id="badge-dane">—</span>
+              <button class="help-btn" onclick="toggleHelp('dane')" title="Help"><i class="ph ph-question"></i></button>
+            </div>
+            <div class="card-help" id="help-dane" style="display:none">
+              <p><strong>What:</strong> DANE pins your mail server's TLS certificate in DNS via TLSA records, eliminating reliance on the CA trust system.</p>
+              <p><strong>Why:</strong> Prevents TLS certificate spoofing on MX servers. Required by some strict receivers (e.g. German mail providers). Requires DNSSEC.</p>
+            </div>
+            <div class="card-body" id="body-dane"><div class="card-skeleton"></div></div>
+          </div>
+
+        </div>
+      </div>
+
     </section>
   </main>
 
-  <!-- ── Header Analyzer ──────────────────────────────────────────── -->
+  <!-- ── Header Analyzer ─────────────────────────────────────────────── -->
   <main id="view-headers" class="view" style="display:none">
     <section class="search-section">
-      <h1 class="search-title">Email Header Analyzer</h1>
+      <h1 class="search-title">Header Analyzer</h1>
       <p class="search-subtitle">Trace delivery path · Check authentication · Detect anomalies · Analyse URLs</p>
       <textarea id="headerInput" class="header-textarea"
                 placeholder="Paste raw email headers here...&#10;&#10;Received: from mail.example.com...&#10;From: sender@example.com&#10;DKIM-Signature: v=1; a=rsa-sha256..."></textarea>

@@ -3,13 +3,11 @@ import ssl
 import dns.resolver
 from urllib.request import urlopen, Request
 from urllib.error import URLError
+from checkers.utils import make_resolver
 
 
 def _resolver():
-    r = dns.resolver.Resolver()
-    r.timeout = 5
-    r.lifetime = 10
-    return r
+    return make_resolver()
 
 
 def _txt(rdata) -> str:

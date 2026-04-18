@@ -1,5 +1,6 @@
 import asyncio
 import dns.resolver
+from checkers.utils import make_resolver
 
 DNSBL = [
     ('zen.spamhaus.org',          'Spamhaus ZEN'),
@@ -57,9 +58,7 @@ async def check_blacklists(ips: list) -> dict:
 
 
 def _check_one(ip: str, dnsbl: str, name: str) -> dict:
-    r = dns.resolver.Resolver()
-    r.timeout = 3
-    r.lifetime = 5
+    r = make_resolver(timeout=3, lifetime=5)
     lookup = f'{_reverse_ip(ip)}.{dnsbl}'
     try:
         answers = r.resolve(lookup, 'A')

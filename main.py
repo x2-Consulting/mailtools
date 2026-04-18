@@ -70,7 +70,7 @@ async def check_all(req: DomainRequest):
         expand_spf_chain(domain),
     )
 
-    score = _calculate_score(mx, spf, dmarc, dkim, blacklist, mta_sts, open_relay)
+    score = _calculate_score(mx, spf, dmarc, dkim, blacklist, open_relay)
     return {
         "domain": domain,
         "mx": mx,
@@ -205,7 +205,7 @@ async def pdf_report(req: DomainRequest):
         expand_spf_chain(domain),
     )
 
-    score = _calculate_score(mx, spf, dmarc, dkim, blacklist, mta_sts, open_relay)
+    score = _calculate_score(mx, spf, dmarc, dkim, blacklist, open_relay)
     data = {
         "domain": domain,
         "mx": mx, "spf": spf, "spf_chain": spf_chain,
@@ -233,73 +233,104 @@ def _clean(domain: str) -> str:
             .rstrip("/"))
 
 
-def _calculate_score(mx, spf, dmarc, dkim, blacklist, mta_sts, open_relay) -> dict:
-    score = 100
+def _calculate_score(mx, spf, dmarc, dkim, blacklist, open_relay) -> dict:
+    """
+    Score is based exclusively on the four required areas (25 pts each = 100 total).
+
+    Required:
+      MX + Blacklists  25 pts  — can you receive mail, and are you blacklisted?
+      SPF              25 pts  — is outbound mail authorised correctly?
+      DMARC            25 pts  — is spoofing of your domain prevented?
+      DKIM             25 pts  — is outbound mail cryptographically signed?
+
+    Open relay is a critical security failure and deducts 25 pts regardless.
+
+    Optional checks (BIMI, MTA-STS, DANE, TLS-RPT) are displayed separately
+    and do not affect the score — they are enhancements, not requirements.
+    """
     issues = []
+    core = {}
 
-    if not mx.get('records'):
-        score -= 20
+    # ── MX + Blacklists (25 pts) ──────────────────────────────────────────
+    mx_pts = 0
+    if mx.get('records'):
+        mx_pts = 25
+        listed = blacklist.get('listed_count', 0)
+        if listed:
+            mx_pts = max(mx_pts - (listed * 5), 0)
+            issues.append({'severity': 'fail', 'text': f'Listed on {listed} blacklist(s)'})
+    else:
         issues.append({'severity': 'fail', 'text': 'No MX records found'})
+    core['mx_blacklist'] = {'label': 'MX & Blacklists', 'score': mx_pts, 'max': 25}
 
+    # ── SPF (25 pts) ──────────────────────────────────────────────────────
+    spf_pts = 0
     spf_s = spf.get('status')
     if spf_s == 'missing':
-        score -= 20
         issues.append({'severity': 'fail', 'text': 'No SPF record'})
     elif spf_s == 'warning':
-        score -= 5
-        issues.append({'severity': 'warning', 'text': 'Multiple SPF records (invalid)'})
+        spf_pts = 10
+        issues.append({'severity': 'warning', 'text': 'Multiple SPF records — RFC violation'})
     elif spf_s == 'ok':
         parsed = spf.get('parsed') or {}
-        if parsed.get('all_mechanism') in ('+all', 'all'):
-            score -= 15
-            issues.append({'severity': 'fail', 'text': 'SPF +all allows any sender'})
-        elif parsed.get('all_mechanism') == '~all':
-            score -= 5
-            issues.append({'severity': 'warning', 'text': 'SPF softfail (~all) — consider -all'})
+        mech = parsed.get('all_mechanism', '')
+        if mech == '-all':
+            spf_pts = 25
+        elif mech == '~all':
+            spf_pts = 18
+            issues.append({'severity': 'warning', 'text': "SPF softfail (~all) — consider upgrading to -all"})
+        elif mech in ('+all', 'all'):
+            spf_pts = 3
+            issues.append({'severity': 'fail', 'text': "SPF uses +all — any server on the internet is permitted to send as you"})
+        else:
+            spf_pts = 15
+            issues.append({'severity': 'warning', 'text': "SPF has no 'all' mechanism — behaviour undefined for non-matching senders"})
         if parsed.get('lookup_count', 0) > 10:
-            score -= 5
-            issues.append({'severity': 'warning', 'text': 'SPF exceeds 10 DNS lookup limit'})
+            spf_pts = max(spf_pts - 5, 0)
+            issues.append({'severity': 'warning', 'text': "SPF exceeds 10 DNS lookup limit — receiving servers may return permerror"})
+    core['spf'] = {'label': 'SPF', 'score': spf_pts, 'max': 25}
 
+    # ── DMARC (25 pts) ────────────────────────────────────────────────────
+    dmarc_pts = 0
     dmarc_s = dmarc.get('status')
     if dmarc_s == 'missing':
-        score -= 15
         issues.append({'severity': 'fail', 'text': 'No DMARC record'})
     elif dmarc_s == 'ok':
         policy = dmarc.get('policy', 'none')
-        if policy == 'none':
-            score -= 10
-            issues.append({'severity': 'warning', 'text': "DMARC policy is 'none' — no enforcement"})
+        if policy == 'reject':
+            dmarc_pts = 25
         elif policy == 'quarantine':
-            score -= 5
-            issues.append({'severity': 'warning', 'text': "DMARC policy is 'quarantine' — consider 'reject'"})
+            dmarc_pts = 18
+            issues.append({'severity': 'warning', 'text': "DMARC policy is 'quarantine' — consider upgrading to 'reject'"})
+        else:
+            dmarc_pts = 8
+            issues.append({'severity': 'warning', 'text': "DMARC policy is 'none' — domain spoofing is not prevented, monitoring only"})
+    core['dmarc'] = {'label': 'DMARC', 'score': dmarc_pts, 'max': 25}
 
-    if dkim.get('status') == 'missing':
-        score -= 10
-        issues.append({'severity': 'warning', 'text': 'No DKIM records found'})
-
-    listed = blacklist.get('listed_count', 0)
-    if listed > 0:
-        score -= min(listed * 5, 25)
-        issues.append({'severity': 'fail', 'text': f'Listed on {listed} blacklist(s)'})
-
-    if mta_sts.get('status') == 'missing':
-        score -= 5
-        issues.append({'severity': 'warning', 'text': 'MTA-STS not configured'})
-
-    if open_relay.get('open_relay_count', 0) > 0:
-        score -= 20
-        issues.append({'severity': 'fail', 'text': 'Open relay detected!'})
-
-    score = max(score, 0)
-    if score >= 90:
-        grade, colour = 'A', 'pass'
-    elif score >= 75:
-        grade, colour = 'B', 'pass'
-    elif score >= 60:
-        grade, colour = 'C', 'warn'
-    elif score >= 45:
-        grade, colour = 'D', 'warn'
+    # ── DKIM (25 pts) ─────────────────────────────────────────────────────
+    dkim_pts = 0
+    if dkim.get('found_selectors'):
+        dkim_pts = 25
+        for sel in dkim['found_selectors']:
+            if sel.get('parsed', {}).get('key_revoked'):
+                dkim_pts = max(dkim_pts - 10, 0)
+                issues.append({'severity': 'fail', 'text': f"DKIM selector '{sel['selector']}' key is revoked"})
     else:
-        grade, colour = 'F', 'fail'
+        issues.append({'severity': 'fail', 'text': 'No DKIM records found with known selectors'})
+    core['dkim'] = {'label': 'DKIM', 'score': dkim_pts, 'max': 25}
 
-    return {'score': score, 'grade': grade, 'colour': colour, 'issues': issues}
+    # ── Total + open relay penalty ────────────────────────────────────────
+    total = sum(v['score'] for v in core.values())
+    if open_relay.get('open_relay_count', 0) > 0:
+        total = max(total - 25, 0)
+        issues.insert(0, {'severity': 'fail', 'text': 'CRITICAL: Open mail relay detected — your server will be exploited and blacklisted'})
+
+    total = max(min(total, 100), 0)
+
+    if total >= 90:   grade, colour = 'A', 'pass'
+    elif total >= 75: grade, colour = 'B', 'pass'
+    elif total >= 55: grade, colour = 'C', 'warn'
+    elif total >= 35: grade, colour = 'D', 'warn'
+    else:             grade, colour = 'F', 'fail'
+
+    return {'score': total, 'grade': grade, 'colour': colour, 'core': core, 'issues': issues}
