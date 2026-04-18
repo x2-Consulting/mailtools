@@ -632,3 +632,194 @@ body {
   .header-inner { padding: 0 16px; }
   .btn-run-all { padding: 10px 14px; font-size: 13px; }
 }
+
+/* ── Help panel ──────────────────────────────────────────────────────────── */
+.help-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 24px; height: 24px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.help-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.card-help {
+  background: #1a2035;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.card-help p { margin-bottom: 8px; }
+.card-help p:last-child { margin-bottom: 0; }
+.card-help code {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* ── Record generator ─────────────────────────────────────────────────────── */
+.help-generator {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.gen-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.gen-field label { font-size: 11px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.gen-field input, .gen-field select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.gen-field input:focus, .gen-field select:focus { border-color: var(--accent); }
+.gen-field select option { background: var(--bg); }
+.btn-generate {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  padding: 7px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+}
+.btn-generate:hover { border-color: var(--accent); color: var(--accent); }
+.gen-output {
+  margin-top: 12px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.gen-output .dns-type { font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.gen-output .dns-record { font-family: var(--mono); font-size: 12px; color: var(--text); word-break: break-all; white-space: pre-wrap; margin-bottom: 8px; }
+.gen-output .dns-where { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+
+/* ── Check group labels in button bar ────────────────────────────────────── */
+.check-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+  align-self: center;
+  padding: 0 2px;
+}
+.check-group-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  align-self: center;
+}
+
+/* ── WHOIS card ──────────────────────────────────────────────────────────── */
+.whois-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.whois-item { display: flex; flex-direction: column; gap: 2px; }
+.whois-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
+.whois-value { font-size: 13px; font-family: var(--mono); color: var(--text); }
+.whois-value.age-young { color: var(--fail); }
+.whois-value.age-new   { color: var(--warn); }
+.whois-value.age-ok    { color: var(--pass); }
+
+/* ── IP reputation card ──────────────────────────────────────────────────── */
+.ip-rep-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.ip-rep-ip   { font-family: var(--mono); color: var(--accent); font-size: 13px; margin-bottom: 6px; }
+.ip-rep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+.ip-rep-grid span:nth-child(odd)  { color: var(--text-dim); }
+.ip-rep-grid span:nth-child(even) { font-family: var(--mono); color: var(--text); }
+
+/* ── Relay/catch-all card ────────────────────────────────────────────────── */
+.relay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.relay-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+.relay-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.relay-result { font-size: 12px; color: var(--text-muted); }
+
+/* ── DANE card ───────────────────────────────────────────────���───────────── */
+.dane-host { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-bottom: 6px; font-weight: 700; }
+.dane-fqdn { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-bottom: 8px; }
+.tlsa-record {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.tlsa-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.tlsa-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 7px; font-size: 11px; }
+.tlsa-cert { font-family: var(--mono); font-size: 10px; color: var(--text-dim); word-break: break-all; }
+
+/* ── SPF chain tree ──────────────────────────────────────────────────────── */
+.spf-tree { font-size: 12px; }
+.spf-node {
+  border-left: 2px solid var(--border);
+  padding-left: 14px;
+  margin-left: 8px;
+  margin-top: 6px;
+}
+.spf-node-root { border-left: none; padding-left: 0; margin-left: 0; }
+.spf-node-domain { font-family: var(--mono); color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+.spf-node-ips { color: var(--text-dim); font-size: 11px; margin-bottom: 4px; }
+.spf-node-error { color: var(--fail); font-size: 11px; }
+.spf-redirect-badge { display: inline-block; background: var(--warn-bg); color: var(--warn); border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 700; margin-left: 6px; }
+
+/* ── MTA-STS card ────────────────────────────────────────────────────────── */
+.mta-sts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mta-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.mta-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 8px; }
+
+/* ── URL findings (header analyzer) ─────────────────────────────────────── */
+.url-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.url-text { font-family: var(--mono); font-size: 11px; color: var(--text-muted); word-break: break-all; margin-bottom: 4px; }
+
+@media (max-width: 640px) {
+  .relay-grid, .mta-sts-grid, .whois-grid, .ip-rep-grid { grid-template-columns: 1fr; }
+}
