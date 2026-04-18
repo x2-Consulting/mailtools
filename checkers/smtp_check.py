@@ -120,3 +120,96 @@ def _extract_tls(smtp, result: dict):
                 result['cert_expiry'] = cert.get('notAfter')
     except Exception:
         pass
+
+
+# ─── Open relay test ──────────────────────────────────────────────────────────
+
+async def check_open_relay(mx_hosts: list) -> dict:
+    if not mx_hosts:
+        return {'status': 'error', 'error': 'No MX hosts', 'results': []}
+    tasks = [
+        asyncio.get_event_loop().run_in_executor(None, _test_relay, host)
+        for host in mx_hosts[:2]
+    ]
+    results = [r for r in await asyncio.gather(*tasks, return_exceptions=True) if isinstance(r, dict)]
+    open_relays = [r for r in results if r.get('is_open_relay')]
+    return {
+        'status': 'fail' if open_relays else 'ok',
+        'results': results,
+        'open_relay_count': len(open_relays),
+    }
+
+
+def _test_relay(host: str) -> dict:
+    result = {
+        'host': host, 'port': 25, 'connected': False,
+        'is_open_relay': False, 'response_code': None,
+        'response': None, 'error': None,
+    }
+    smtp = None
+    try:
+        smtp = smtplib.SMTP(host, 25, timeout=10)
+        result['connected'] = True
+        smtp.ehlo('mailtool.invalid')
+        code, _ = smtp.docmd('MAIL', 'FROM:<openrelaytest@mailtool.invalid>')
+        if code == 250:
+            code2, msg2 = smtp.docmd('RCPT', 'TO:<relay-probe@gmail.com>')
+            result['response_code'] = code2
+            result['response'] = msg2.decode('utf-8', errors='replace') if isinstance(msg2, bytes) else str(msg2)
+            result['is_open_relay'] = (code2 == 250)
+            smtp.docmd('RSET')
+    except Exception as e:
+        result['error'] = str(e)
+    finally:
+        if smtp:
+            try: smtp.close()
+            except Exception: pass
+    return result
+
+
+# ─── Catch-all test ───────────────────────────────────────────────────────────
+
+async def check_catch_all(mx_hosts: list, domain: str) -> dict:
+    if not mx_hosts:
+        return {'status': 'error', 'error': 'No MX hosts', 'results': []}
+    tasks = [
+        asyncio.get_event_loop().run_in_executor(None, _test_catch_all, host, domain)
+        for host in mx_hosts[:2]
+    ]
+    results = [r for r in await asyncio.gather(*tasks, return_exceptions=True) if isinstance(r, dict)]
+    is_catch_all = any(r.get('is_catch_all') for r in results)
+    return {
+        'status': 'warning' if is_catch_all else 'ok',
+        'results': results,
+        'is_catch_all': is_catch_all,
+    }
+
+
+def _test_catch_all(host: str, domain: str) -> dict:
+    import random, string
+    rand = ''.join(random.choices(string.ascii_lowercase + string.digits, k=14))
+    test_addr = f'no-such-user-{rand}@{domain}'
+    result = {
+        'host': host, 'test_address': test_addr,
+        'connected': False, 'is_catch_all': False,
+        'response_code': None, 'response': None, 'error': None,
+    }
+    smtp = None
+    try:
+        smtp = smtplib.SMTP(host, 25, timeout=10)
+        result['connected'] = True
+        smtp.ehlo('mailtool.invalid')
+        code, _ = smtp.docmd('MAIL', 'FROM:<probe@mailtool.invalid>')
+        if code == 250:
+            code2, msg2 = smtp.docmd('RCPT', f'TO:<{test_addr}>')
+            result['response_code'] = code2
+            result['response'] = msg2.decode('utf-8', errors='replace') if isinstance(msg2, bytes) else str(msg2)
+            result['is_catch_all'] = (code2 == 250)
+            smtp.docmd('RSET')
+    except Exception as e:
+        result['error'] = str(e)
+    finally:
+        if smtp:
+            try: smtp.close()
+            except Exception: pass
+    return result

@@ -27,7 +27,6 @@ def analyze_headers(raw: str) -> dict:
     from_addr = msg.get('From', '')
     reply_to = msg.get('Reply-To', '')
     return_path = msg.get('Return-Path', '')
-    envelope_from = _extract_addr(return_path)
     from_domain = _extract_domain(from_addr)
     return_domain = _extract_domain(return_path)
     reply_domain = _extract_domain(reply_to)
@@ -36,9 +35,13 @@ def analyze_headers(raw: str) -> dict:
     delivery_time = _calc_delivery(received_chain)
 
     spam_scores = _parse_spam_scores(msg)
+    urls = _extract_urls(msg)
+    url_findings = _analyse_urls(urls)
+    timezone_anomalies = _check_timezone(date_header, received_chain)
+
     anomalies = _detect_anomalies(
         from_domain, return_domain, reply_domain, received_chain, auth_results, spam_scores
-    )
+    ) + timezone_anomalies
 
     return {
         'status': 'ok',
@@ -57,6 +60,7 @@ def analyze_headers(raw: str) -> dict:
         'arc_chain': arc_chain,
         'received_chain': received_chain,
         'spam_scores': spam_scores,
+        'urls': url_findings,
         'alignment': {
             'from_domain': from_domain,
             'return_path_domain': return_domain,
@@ -266,3 +270,119 @@ def _domains_align(d1: Optional[str], d2: Optional[str]) -> Optional[bool]:
     org1 = '.'.join(d1.split('.')[-2:])
     org2 = '.'.join(d2.split('.')[-2:])
     return org1 == org2
+
+
+# ─── URL extraction & analysis ────────────────────────────────────────────────
+
+_URL_RE = re.compile(r'https?://[^\s<>"\'\]]+|www\.[^\s<>"\'\]]+', re.IGNORECASE)
+
+_SHORTENERS = {
+    'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'buff.ly',
+    'dlvr.it', 'is.gd', 'su.pr', 'tiny.cc', 'rb.gy', 'cutt.ly',
+}
+
+_SUSPICIOUS_TLDS = {
+    '.xyz', '.top', '.click', '.work', '.date', '.racing', '.download',
+    '.loan', '.review', '.trade', '.webcam', '.accountant', '.stream',
+}
+
+
+def _extract_urls(msg) -> list:
+    found = set()
+    for name in msg.keys():
+        val = msg.get(name, '')
+        if val:
+            for url in _URL_RE.findall(val):
+                found.add(url.rstrip('.,;)>"\']'))
+    return list(found)
+
+
+def _analyse_urls(urls: list) -> dict:
+    findings = []
+    for url in urls:
+        entry = {'url': url, 'flags': []}
+        lower = url.lower()
+
+        # IP address as host
+        if re.search(r'https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', lower):
+            entry['flags'].append({'severity': 'fail', 'text': 'URL uses raw IP address instead of hostname'})
+
+        # URL shortener
+        for shortener in _SHORTENERS:
+            if shortener in lower:
+                entry['flags'].append({'severity': 'warning', 'text': f'URL shortener detected ({shortener}) — destination is hidden'})
+                break
+
+        # Suspicious TLD
+        for tld in _SUSPICIOUS_TLDS:
+            if lower.endswith(tld) or (tld + '/') in lower:
+                entry['flags'].append({'severity': 'warning', 'text': f'Suspicious TLD ({tld})'})
+                break
+
+        # Mixed scheme in path (http inside https link)
+        if 'https://' in lower and 'redirect' in lower and 'http://' in lower:
+            entry['flags'].append({'severity': 'warning', 'text': 'Possible open redirect in URL'})
+
+        findings.append(entry)
+
+    flagged = [f for f in findings if f['flags']]
+    return {
+        'total': len(findings),
+        'flagged_count': len(flagged),
+        'flagged': flagged,
+        'all_urls': findings,
+    }
+
+
+# ─── Timezone anomaly ─────────────────────────────────────────────────────────
+
+def _check_timezone(date_str: str, received_chain: list) -> list:
+    issues = []
+    if not date_str:
+        return issues
+    try:
+        msg_dt = parsedate_to_datetime(date_str)
+        now = datetime.now(timezone.utc)
+        msg_utc = msg_dt.astimezone(timezone.utc)
+        diff_secs = (msg_utc - now).total_seconds()
+
+        if diff_secs > 3600:
+            issues.append({
+                'severity': 'warning',
+                'type': 'future_date',
+                'message': f"Date header is {int(diff_secs/3600)}h in the future — possible clock skew or header forgery",
+            })
+        elif diff_secs < -7 * 86400:
+            issues.append({
+                'severity': 'warning',
+                'type': 'stale_date',
+                'message': "Date header is more than 7 days old — possible delayed delivery or header manipulation",
+            })
+
+        if msg_dt.tzinfo:
+            offset_h = msg_dt.utcoffset().total_seconds() / 3600
+            # Valid half-hour offsets: 5.5, 5.75, 6.5, 9.5, 10.5, 3.5, 4.5 etc.
+            valid_halves = {x / 2 for x in range(-26, 30)}
+            if offset_h not in valid_halves:
+                issues.append({
+                    'severity': 'info',
+                    'type': 'unusual_timezone',
+                    'message': f"Date header timezone UTC{'+' if offset_h >= 0 else ''}{offset_h} is non-standard",
+                })
+
+        # Cross-check with first Received header timestamp
+        if received_chain and received_chain[0].get('timestamp_parsed'):
+            try:
+                first_hop = datetime.fromisoformat(received_chain[0]['timestamp_parsed'])
+                skew = abs((first_hop.astimezone(timezone.utc) - msg_utc).total_seconds())
+                if skew > 3600:
+                    issues.append({
+                        'severity': 'info',
+                        'type': 'timestamp_skew',
+                        'message': f"Date header differs from first Received timestamp by {int(skew/60)} minutes",
+                    })
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return issues

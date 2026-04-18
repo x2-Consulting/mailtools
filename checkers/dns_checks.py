@@ -375,3 +375,72 @@ def _parse_bimi(record: str) -> dict:
 
     tags['warnings'] = warnings
     return tags
+
+
+# ─── SPF include chain expansion ─────────────────────────────────────────────
+
+async def expand_spf_chain(domain: str) -> dict:
+    def _run():
+        node = _expand_recursive(domain, 0, set())
+        return {
+            'status': 'ok' if node.get('record') else 'missing',
+            'tree': node,
+            'total_lookups': node.get('lookups', 0),
+            'total_ip4': len(node.get('all_ip4', [])),
+            'total_ip6': len(node.get('all_ip6', [])),
+            'all_ip4': node.get('all_ip4', []),
+            'all_ip6': node.get('all_ip6', []),
+        }
+    return await asyncio.get_event_loop().run_in_executor(None, _run)
+
+
+def _expand_recursive(domain: str, depth: int, visited: set) -> dict:
+    node = {
+        'domain': domain, 'record': None,
+        'direct_ip4': [], 'direct_ip6': [],
+        'all_ip4': [], 'all_ip6': [],
+        'all_mechanism': None, 'includes': [],
+        'lookups': 0, 'error': None,
+    }
+    if domain in visited:
+        node['error'] = 'Circular reference'; return node
+    if depth > 6:
+        node['error'] = 'Max recursion depth exceeded'; return node
+
+    visited.add(domain)
+    r = _resolver()
+    try:
+        answers = r.resolve(domain, 'TXT')
+        spf_records = [_txt_strings(rd) for rd in answers if _txt_strings(rd).startswith('v=spf1')]
+    except Exception as e:
+        node['error'] = str(e); node['lookups'] = 1; return node
+
+    if not spf_records:
+        node['error'] = 'No SPF record'; node['lookups'] = 1; return node
+
+    record = spf_records[0]
+    parsed = _parse_spf(record)
+    node['record'] = record
+    node['direct_ip4'] = list(parsed.get('ip4', []))
+    node['direct_ip6'] = list(parsed.get('ip6', []))
+    node['all_ip4'] = list(parsed.get('ip4', []))
+    node['all_ip6'] = list(parsed.get('ip6', []))
+    node['all_mechanism'] = parsed.get('all_mechanism')
+    node['lookups'] = 1 + len(parsed.get('a_records', [])) + len(parsed.get('mx_records', []))
+
+    for include_domain in parsed.get('includes', []):
+        child = _expand_recursive(include_domain, depth + 1, visited)
+        node['includes'].append(child)
+        node['lookups'] += child.get('lookups', 0)
+        node['all_ip4'].extend(child.get('all_ip4', []))
+        node['all_ip6'].extend(child.get('all_ip6', []))
+
+    if parsed.get('redirect'):
+        child = _expand_recursive(parsed['redirect'], depth + 1, visited)
+        child['_is_redirect'] = True
+        node['includes'].append(child)
+        node['lookups'] += child.get('lookups', 0)
+        node['all_ip4'].extend(child.get('all_ip4', []))
+        node['all_ip6'].extend(child.get('all_ip6', []))
+
+    return node
