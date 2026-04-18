@@ -169,15 +169,59 @@ function toggleHelp(type) {
   if (!el) return;
   const open = el.style.display !== 'none';
   el.style.display = open ? 'none' : 'block';
-  // Show generator if record is missing
   if (!open) {
-    const genId = `gen-${type}`;
-    const gen = document.getElementById(genId);
+    const gen = document.getElementById(`gen-${type}`);
     if (gen) {
-      const badge = document.getElementById(`badge-${type}`);
-      const isMissing = badge && (badge.classList.contains('missing') || badge.textContent.toLowerCase().includes('missing'));
-      gen.style.display = isMissing ? 'block' : 'block'; // always show generator when help is open
+      gen.style.display = 'block';
+      _prefillGenerator(type);
     }
+  }
+}
+
+function _prefillGenerator(type) {
+  if (!lastResults) return;
+  if (type === 'spf') {
+    const parsed = lastResults.spf?.parsed || {};
+    const policy = parsed.all_mechanism;
+    if (policy) {
+      const sel = document.getElementById('spf-policy');
+      if (sel) sel.value = policy;
+    }
+    const providerMap = {
+      '_spf.google.com':             'include:_spf.google.com',
+      'spf.protection.outlook.com':  'include:spf.protection.outlook.com',
+      'amazonses.com':               'include:amazonses.com',
+      'sendgrid.net':                'include:sendgrid.net',
+      '_spf.mailchimp.com':          'include:_spf.mailchimp.com',
+      'spf.mandrillapp.com':         'include:spf.mandrillapp.com',
+    };
+    for (const inc of (parsed.includes || [])) {
+      const match = providerMap[inc];
+      if (match) { const s = document.getElementById('spf-provider'); if (s) s.value = match; break; }
+    }
+  } else if (type === 'dmarc') {
+    const parsed = lastResults.dmarc?.parsed || {};
+    const policy = parsed.p || lastResults.dmarc?.policy;
+    if (policy) { const s = document.getElementById('dmarc-policy'); if (s) s.value = policy; }
+    const rua = (parsed.rua || '').replace('mailto:', '');
+    if (rua) { const i = document.getElementById('dmarc-rua'); if (i && !i.value) i.value = rua; }
+    const ruf = (parsed.ruf || '').replace('mailto:', '');
+    if (ruf) { const i = document.getElementById('dmarc-ruf'); if (i && !i.value) i.value = ruf; }
+    const pct = parsed.pct;
+    if (pct) { const i = document.getElementById('dmarc-pct'); if (i) i.value = pct; }
+  } else if (type === 'bimi') {
+    const parsed = lastResults.bimi?.parsed || {};
+    const logo = parsed.l || lastResults.bimi?.logo_url;
+    if (logo) { const i = document.getElementById('bimi-logo'); if (i && !i.value) i.value = logo; }
+    const vmc = parsed.a || lastResults.bimi?.vmc_url;
+    if (vmc) { const i = document.getElementById('bimi-vmc'); if (i && !i.value) i.value = vmc; }
+  } else if (type === 'mta_sts') {
+    const sts = lastResults.mta_sts || {};
+    const tls = lastResults.tls_rpt || {};
+    const id = sts.dns_id || sts.policy?.id;
+    if (id) { const i = document.getElementById('mta-id'); if (i && !i.value) i.value = id; }
+    const rua = (tls.parsed?.rua || '').replace('mailto:', '');
+    if (rua) { const i = document.getElementById('tls-rpt-email'); if (i && !i.value) i.value = rua; }
   }
 }
 
@@ -578,14 +622,22 @@ function renderIPRep(data) {
   setBadge('ip_reputation', 'pass', `${(data.results||[]).length} IP(s)`);
   setBody('ip_reputation', (data.results || []).map(r => {
     if (r.status === 'error') return `<div class="ip-rep-item"><div class="ip-rep-ip">${esc(r.ip)}</div><div class="finding fail"><i class="ph ph-x-circle"></i>${esc(r.error)}</div></div>`;
+    const flags = [];
+    if (r.is_proxy) flags.push('<span style="color:var(--warn);font-weight:600"><i class="ph ph-warning"></i> Proxy/VPN detected</span>');
+    if (r.is_hosting) flags.push('<span style="color:var(--text-muted)"><i class="ph ph-cloud"></i> Hosting/datacenter IP</span>');
+    const loc = [r.city, r.region, r.country].filter(Boolean).join(', ') || r.country || '—';
     return `<div class="ip-rep-item">
       <div class="ip-rep-ip">${esc(r.ip)}</div>
       <div class="ip-rep-grid">
         <span>Organisation</span><span>${esc(r.org_name || '—')}</span>
-        <span>Country</span><span>${esc(r.country || '—')}</span>
-        <span>Network</span><span>${esc(r.cidr || '—')}</span>
-        <span>Abuse Email</span><span>${r.abuse_email ? `<a href="mailto:${esc(r.abuse_email)}" style="color:var(--accent)">${esc(r.abuse_email)}</a>` : '—'}</span>
+        <span>ISP</span><span>${esc(r.isp || r.org_name || '—')}</span>
+        ${r.asn ? `<span>ASN</span><span>${esc(r.asn)}</span>` : ''}
+        <span>Location</span><span>${esc(loc)}</span>
+        ${r.cidr ? `<span>Network</span><span>${esc(r.cidr)}</span>` : ''}
+        ${r.abuse_email ? `<span>Abuse</span><span><a href="mailto:${esc(r.abuse_email)}" style="color:var(--accent)">${esc(r.abuse_email)}</a></span>` : ''}
       </div>
+      ${flags.length ? `<div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px">${flags.join('')}</div>` : ''}
+      <div style="margin-top:4px;font-size:11px;color:var(--text-dim)">Source: ${esc(r.source || 'RDAP')}</div>
     </div>`;
   }).join('') || stateHtml('missing', 'No IP data'));
 }
@@ -597,16 +649,25 @@ function renderWHOIS(data) {
   const ageStr = age !== null ? `${age} days` : '—';
   setBadge('whois', data.warnings?.length ? (age !== null && age < 30 ? 'fail' : 'warn') : 'pass',
            ageStr !== '—' ? `${ageStr} old` : 'ok');
+  const dateStr = s => {
+    if (!s) return '—';
+    const d = String(s);
+    return d.includes('T') ? d.split('T')[0] : d.split(' ')[0];
+  };
   setBody('whois', `
     <div class="whois-grid">
       <div class="whois-item"><div class="whois-label">Registrar</div><div class="whois-value">${esc(data.registrar || '—')}</div></div>
       <div class="whois-item"><div class="whois-label">Domain Age</div><div class="whois-value ${ageCls}">${esc(ageStr)}</div></div>
-      <div class="whois-item"><div class="whois-label">Created</div><div class="whois-value">${esc(data.created ? data.created.split('T')[0] : '—')}</div></div>
-      <div class="whois-item"><div class="whois-label">Expires</div><div class="whois-value ${data.days_to_expiry !== null && data.days_to_expiry < 30 ? 'age-young' : ''}">${esc(data.expires ? data.expires.split('T')[0] : '—')}</div></div>
-      <div class="whois-item"><div class="whois-label">Last Updated</div><div class="whois-value">${esc(data.updated ? data.updated.split('T')[0] : '—')}</div></div>
-      <div class="whois-item"><div class="whois-label">Nameservers</div><div class="whois-value" style="font-size:11px">${esc((data.nameservers||[]).slice(0,3).join(', ') || '—')}</div></div>
+      <div class="whois-item"><div class="whois-label">Created</div><div class="whois-value">${esc(dateStr(data.created))}</div></div>
+      <div class="whois-item"><div class="whois-label">Expires</div><div class="whois-value ${data.days_to_expiry != null && data.days_to_expiry < 30 ? 'age-young' : ''}">${esc(dateStr(data.expires))}${data.days_to_expiry != null ? ` <span style="color:var(--text-muted);font-size:11px">(${data.days_to_expiry}d)</span>` : ''}</div></div>
+      <div class="whois-item"><div class="whois-label">Last Updated</div><div class="whois-value">${esc(dateStr(data.updated))}</div></div>
+      <div class="whois-item"><div class="whois-label">DNSSEC</div><div class="whois-value" style="color:${data.dnssec ? 'var(--pass)' : 'var(--text-muted)'}">${data.dnssec ? 'Enabled' : 'Disabled'}</div></div>
+      ${data.registrant ? `<div class="whois-item"><div class="whois-label">Registrant</div><div class="whois-value">${esc(data.registrant)}${data.registrant_country ? ` (${esc(data.registrant_country)})` : ''}</div></div>` : ''}
+      <div class="whois-item"><div class="whois-label">Nameservers</div><div class="whois-value" style="font-size:11px">${esc((data.nameservers||[]).slice(0,4).join(', ') || '—')}</div></div>
+      ${data.abuse_email ? `<div class="whois-item"><div class="whois-label">Abuse Contact</div><div class="whois-value"><a href="mailto:${esc(data.abuse_email)}" style="color:var(--accent)">${esc(data.abuse_email)}</a></div></div>` : ''}
     </div>
-    ${data.status_flags?.length ? `<div class="tag-grid" style="margin-top:10px">${data.status_flags.map(f=>tagPill('Status', f)).join('')}</div>` : ''}
+    <div style="margin-top:8px;font-size:11px;color:var(--text-dim)">Source: ${esc(data.source || 'RDAP')}</div>
+    ${data.status_flags?.length ? `<div class="tag-grid" style="margin-top:10px">${data.status_flags.slice(0,6).map(f=>tagPill('Status', f)).join('')}</div>` : ''}
     ${findingsHtml((data.warnings||[]).map(w=>({severity:'warn',text:w})))}`);
 }
 
@@ -849,4 +910,107 @@ async function post(path, body) {
   const resp = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
   if (!resp.ok) { const text=await resp.text(); throw new Error(text||`HTTP ${resp.status}`); }
   return resp.json();
+}
+
+// ── BIMI SVG Converter ─────────────────────────────────────────────────────
+let bimiFile = null;
+
+function bimiHandleDrop(ev) {
+  ev.preventDefault();
+  document.getElementById('bimiDropZone').classList.remove('drag-over');
+  const f = ev.dataTransfer.files[0];
+  if (f) bimiSetFile(f);
+}
+function bimiHandleFile(f) { if (f) bimiSetFile(f); }
+function bimiSetFile(f) {
+  bimiFile = f;
+  const nameEl = document.getElementById('bimiFileName');
+  nameEl.textContent = f.name;
+  nameEl.style.display = 'block';
+  document.getElementById('bimiConvertBtn').disabled = false;
+  document.getElementById('bimiResultCard').style.display = 'none';
+}
+
+async function bimiConvert() {
+  if (!bimiFile) return;
+  const btn = document.getElementById('bimiConvertBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-spinner"></i> Converting…';
+  try {
+    const fd = new FormData();
+    fd.append('file', bimiFile);
+    const resp = await fetch('/tools/bimi-convert', { method: 'POST', body: fd });
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    _renderBimiResult(data);
+  } catch (e) {
+    showToast('Conversion failed: ' + e.message, 'fail');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ph ph-magic-wand"></i> Convert to BIMI SVG';
+  }
+}
+
+function _renderBimiResult(data) {
+  const card = document.getElementById('bimiResultCard');
+  const badge = document.getElementById('bimiResultBadge');
+  const content = document.getElementById('bimiResultContent');
+  card.style.display = '';
+
+  badge.className = `card-badge ${data.valid ? 'pass' : 'warn'}`;
+  badge.textContent = data.valid ? 'BIMI Ready' : 'Needs Review';
+
+  const warnHtml = data.warnings.length
+    ? `<div class="findings" style="margin-bottom:12px">${data.warnings.map(w =>
+        `<div class="finding warn"><i class="ph ph-warning"></i>${esc(w)}</div>`).join('')}</div>` : '';
+
+  const errHtml = data.errors.length
+    ? `<div class="findings" style="margin-bottom:12px">${data.errors.map(e =>
+        `<div class="finding fail"><i class="ph ph-x-circle"></i>${esc(e)}</div>`).join('')}</div>` : '';
+
+  let previewHtml = '';
+  let downloadHtml = '';
+  if (data.svg_b64) {
+    const svgSrc = `data:image/svg+xml;base64,${data.svg_b64}`;
+    previewHtml = `<div style="text-align:center;margin-bottom:14px">
+      <img src="${svgSrc}" style="width:120px;height:120px;border-radius:12px;border:1px solid var(--border);background:white;padding:8px" alt="BIMI preview"/>
+    </div>`;
+    downloadHtml = `<button class="btn-run-all" style="width:100%" onclick="bimiDownload('${data.svg_b64}','${esc(data.filename)}')">
+      <i class="ph ph-download-simple"></i> Download ${esc(data.filename)}
+    </button>`;
+  }
+
+  // Update checklist
+  _updateBimiChecklist(data);
+
+  content.innerHTML = previewHtml + errHtml + warnHtml + downloadHtml;
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function bimiDownload(b64, filename) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  const blob = new Blob([arr], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function _updateBimiChecklist(data) {
+  const checks = document.querySelectorAll('#bimiChecklist .bimi-req');
+  const noWarn = txt => !data.warnings.some(w => w.includes(txt));
+  const states = [
+    !data.errors.length && data.valid,               // SVG 1.2 Tiny
+    !data.warnings.some(w => w.includes('square')),  // square viewBox
+    !data.warnings.some(w => w.includes('disallowed')), // no scripts
+    !data.warnings.some(w => w.includes('external ref')), // no ext refs
+    true,                                             // width/height 100% (always done)
+    !data.warnings.some(w => w.includes('<title>')), // title present
+  ];
+  checks.forEach((el, i) => {
+    const ok = states[i];
+    el.innerHTML = el.innerHTML.replace(/<i[^>]*><\/i>/, `<i class="ph ph-${ok ? 'check-circle' : 'x-circle'}" style="color:var(--${ok ? 'pass' : 'fail'})"></i>`);
+  });
 }

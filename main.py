@@ -1,6 +1,7 @@
 import asyncio
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+import base64
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -169,6 +170,26 @@ async def api_headers(req: HeaderRequest):
     if not req.headers.strip():
         raise HTTPException(400, "Headers are required")
     return analyze_headers(req.headers)
+
+
+# ─── BIMI SVG Converter ──────────────────────────────────────────────────────
+
+@app.post("/tools/bimi-convert")
+async def bimi_convert(file: UploadFile = File(...)):
+    from checkers.bimi_converter import convert_to_bimi_svg
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(400, "File too large (max 5 MB)")
+    result = convert_to_bimi_svg(content, file.filename or '')
+    svg_b64 = base64.b64encode(result['svg']).decode() if result.get('svg') else None
+    fname = (file.filename or 'logo').rsplit('.', 1)[0] + '_bimi.svg'
+    return {
+        'svg_b64': svg_b64,
+        'filename': fname,
+        'warnings': result['warnings'],
+        'errors': result['errors'],
+        'valid': result['valid'],
+    }
 
 
 # ─── PDF report ──────────────────────────────────────────────────────────────

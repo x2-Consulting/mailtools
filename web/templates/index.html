@@ -26,6 +26,9 @@
         <button class="nav-btn" data-view="headers" onclick="switchView('headers')">
           <i class="ph ph-list-bullets"></i> Headers
         </button>
+        <button class="nav-btn" data-view="tools" onclick="switchView('tools')">
+          <i class="ph ph-wrench"></i> Tools
+        </button>
       </nav>
     </div>
   </header>
@@ -457,6 +460,79 @@
     </section>
     <section class="results-section" id="header-results" style="display:none">
       <div class="cards-grid" id="header-cards"></div>
+    </section>
+  </main>
+
+  <!-- ── Tools ─────────────────────────────────────────────────────── -->
+  <main id="view-tools" class="view" style="display:none">
+    <section class="search-section">
+      <h1 class="search-title">BIMI SVG Converter</h1>
+      <p class="search-subtitle">Convert any SVG (or raster PNG/JPG) to BIMI-compliant SVG 1.2 Tiny P/S</p>
+    </section>
+
+    <section class="results-section" style="display:block;padding-top:0">
+      <div class="bimi-tool-grid">
+
+        <!-- Upload panel -->
+        <div class="check-card">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-upload-simple"></i></span>
+            <span class="card-title">Upload Logo</span>
+          </div>
+          <div class="card-body">
+            <div class="bimi-drop-zone" id="bimiDropZone"
+                 onclick="document.getElementById('bimiFileInput').click()"
+                 ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="bimiHandleDrop(event)">
+              <i class="ph ph-image-square" style="font-size:40px;color:var(--accent);margin-bottom:12px"></i>
+              <div style="font-weight:600;color:var(--text)">Drop your logo here</div>
+              <div style="color:var(--text-muted);font-size:12px;margin-top:4px">SVG, PNG, JPG · Max 5 MB</div>
+              <div id="bimiFileName" style="margin-top:10px;font-size:12px;color:var(--accent);display:none"></div>
+            </div>
+            <input type="file" id="bimiFileInput" accept=".svg,.png,.jpg,.jpeg" style="display:none" onchange="bimiHandleFile(this.files[0])"/>
+            <button class="btn-run-all" style="margin-top:14px;width:100%" onclick="bimiConvert()" id="bimiConvertBtn" disabled>
+              <i class="ph ph-magic-wand"></i> Convert to BIMI SVG
+            </button>
+          </div>
+        </div>
+
+        <!-- Requirements panel -->
+        <div class="check-card">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-check-square"></i></span>
+            <span class="card-title">BIMI Requirements</span>
+          </div>
+          <div class="card-body">
+            <div id="bimiChecklist" class="bimi-checklist">
+              <div class="bimi-req"><i class="ph ph-circle" style="color:var(--text-dim)"></i> SVG 1.2 Tiny P/S profile</div>
+              <div class="bimi-req"><i class="ph ph-circle" style="color:var(--text-dim)"></i> Square viewBox (1:1 ratio)</div>
+              <div class="bimi-req"><i class="ph ph-circle" style="color:var(--text-dim)"></i> No scripts or animations</div>
+              <div class="bimi-req"><i class="ph ph-circle" style="color:var(--text-dim)"></i> No external references</div>
+              <div class="bimi-req"><i class="ph ph-circle" style="color:var(--text-dim)"></i> width/height set to 100%</div>
+              <div class="bimi-req"><i class="ph ph-circle" style="color:var(--text-dim)"></i> &lt;title&gt; element present</div>
+            </div>
+            <div style="margin-top:14px;padding:10px;background:var(--surface2);border-radius:var(--radius-sm);font-size:12px;color:var(--text-muted)">
+              <strong style="color:var(--warn)"><i class="ph ph-warning"></i> Note:</strong>
+              DMARC must be set to <code>quarantine</code> or <code>reject</code> before BIMI will display in email clients.
+              Gmail also requires a Verified Mark Certificate (VMC) from DigiCert or Entrust.
+            </div>
+          </div>
+        </div>
+
+        <!-- Result panel (hidden until conversion) -->
+        <div class="check-card" id="bimiResultCard" style="display:none">
+          <div class="card-header">
+            <span class="card-icon"><i class="ph ph-file-svg"></i></span>
+            <span class="card-title">Converted SVG</span>
+            <span class="card-badge" id="bimiResultBadge">—</span>
+          </div>
+          <div class="card-body">
+            <div id="bimiResultContent"></div>
+          </div>
+        </div>
+
+      </div>
     </section>
   </main>
 
